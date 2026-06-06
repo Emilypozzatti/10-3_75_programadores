@@ -24,7 +24,7 @@ Atualmente, o sistema já realiza upload de imagens, identificação de plantas,
 https://www.youtube.com/watch?v=SPPkOhT8FqI
 
 ## Instruções de como rodar a aplicação
-Baixar: https://nodejs.org?utm_source=chatgpt.com com npm
+Baixar: https://nodejs.org/pt-br com npm
 
 # No terminal 
 npm init -y
