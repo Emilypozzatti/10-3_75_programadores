@@ -1,0 +1,19 @@
+{
+  "diario": [
+    {
+      "data": "06/06/2026, 02:10",
+      "tipo": "Manual",
+      "atividade": "colhi os tomates",
+      "id": "_SAQoLicbbw"
+    },
+    {
+      "data": "06/06/2026, 02:32",
+      "tipo": "Diagnóstico",
+      "planta": "batata",
+      "problema": "com bichos",
+      "solucao": "Para controlar bichos em batatas, você pode adotar as seguintes medidas:\n\n- Utilize cercas para evitar infestação;\n- Plante batatas resistentes a bichos;\n- Trate o solo com inseticida;\n- Coloque rede de proteção;\n- Utilize cultivares resistentes a doenças.",
+      "id": "N0H7ece8TfY"
+    }
+  ],
+  "$schema": "./node_modules/json-server/schema.json"
+}
