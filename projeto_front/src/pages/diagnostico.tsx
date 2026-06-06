@@ -45,7 +45,6 @@ export default function Diagnostico({ salvar }: DiagnosticoProps) {
 
   function selecionarImagem(event: ChangeEvent<HTMLInputElement>) {
     const arquivoSelecionado = event.target.files?.[0];
-
     if (!arquivoSelecionado) return;
 
     setArquivo(arquivoSelecionado);
@@ -79,15 +78,12 @@ export default function Diagnostico({ salvar }: DiagnosticoProps) {
       const textoLimitado = texto.substring(0, 450);
 
       const resposta = await fetch(
-        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
-          textoLimitado
-        )}&langpair=en|pt`
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(textoLimitado)}&langpair=en|pt`
       );
 
       const dados = await resposta.json();
       return dados.responseData?.translatedText || texto;
-    } catch (erroTraducao) {
-      console.error("Erro ao traduzir:", erroTraducao);
+    } catch {
       return texto;
     }
   }
@@ -96,11 +92,11 @@ export default function Diagnostico({ salvar }: DiagnosticoProps) {
     const problema = problemasEncontrados.join(", ");
 
     if (!problema || problema === "Nenhum problema específico identificado.") {
-      return "A planta não apresentou doença específica na análise. Como cuidado preventivo, mantenha irrigação adequada, boa ventilação, observe novas manchas ou amarelamentos e remova folhas muito danificadas quando necessário.";
+      return "A planta não apresentou doença específica. Mantenha irrigação adequada e observe alterações.";
     }
 
     try {
-      const resposta = await fetch("http://127.0.0.1:3000/diagnostico", {
+      const resposta = await fetch("http://127.0.0.1:3001/diagnostico", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -110,27 +106,23 @@ export default function Diagnostico({ salvar }: DiagnosticoProps) {
 
       const dados = await resposta.json();
 
-      if (!resposta.ok) {
-        throw new Error(dados.resultado || "Erro ao consultar a IA");
-      }
+      if (!resposta.ok) throw new Error();
 
       return typeof dados.resultado === "string"
         ? dados.resultado
         : JSON.stringify(dados.resultado);
-    } catch (erroIA) {
-      console.error("Erro na IA:", erroIA);
-      return "A doença foi identificada, mas não foi possível conectar com a IA de tratamentos. Verifique se o backend está rodando em http://127.0.0.1:3001 e se a chave GROQ_API_KEY está configurada.";
+    } catch {
+      return "Erro ao conectar com a IA. Verifique o backend.";
     }
   }
 
   async function analisarImagem() {
     if (!arquivo) {
-      alert("Selecione uma imagem primeiro!");
+      alert("Selecione uma imagem!");
       return;
     }
 
     setCarregando(true);
-    setMensagem("");
     setErro("");
     setTratamentoIA("");
 
@@ -152,78 +144,49 @@ export default function Diagnostico({ salvar }: DiagnosticoProps) {
         }
       );
 
-      const textoResposta = await resposta.text();
+      const dados = await resposta.json();
+      const sugestao = dados.result?.classification?.suggestions?.[0];
 
-      if (!resposta.ok) {
-        throw new Error(textoResposta);
+    if (sugestao.details?.description?.value) {
+      const traduzido = await traduzirDescricao(sugestao.details.description.value);
+
+      const textoLimpo = traduzido
+        .replace(/\(\;/g, "(") 
+        .replace(/\s+/g, " "); 
+
+      setDescricao(textoLimpo);
+       }
+
+      setNomeCientifico(sugestao.name);
+      setPrecisao(calcularPrecisao(sugestao.probability));
+      setTaxonomia(sugestao.details?.taxonomy || null);
+
+      if (sugestao.details?.description?.value) {
+        const traduzido = await traduzirDescricao(sugestao.details.description.value);
+        setDescricao(traduzido);
       }
 
-      const dados = JSON.parse(textoResposta);
-      const sugestaoPlanta = dados.result?.classification?.suggestions?.[0];
-
-      let plantaIdentificada = "Planta não identificada";
-      let statusIdentificado = "Não identificado";
-      let listaProblemas = ["Nenhum problema específico identificado."];
-
-      if (sugestaoPlanta) {
-        const detalhes = sugestaoPlanta.details || {};
-
-        plantaIdentificada = sugestaoPlanta.name;
-        setPrecisao(calcularPrecisao(sugestaoPlanta.probability));
-        setNomeCientifico(plantaIdentificada);
-        setTaxonomia(detalhes.taxonomy || null);
-
-        if (detalhes.description?.value) {
-          setDescricao("Traduzindo descrição...");
-          const descricaoTraduzida = await traduzirDescricao(detalhes.description.value);
-          setDescricao(descricaoTraduzida);
-        } else {
-          setDescricao("Descrição não disponibilizada pela API.");
-        }
-      } else {
-        setNomeCientifico(plantaIdentificada);
-        setPrecisao("Não identificada");
-        setDescricao("Não foi possível identificar a espécie com segurança.");
-      }
-
-      const estaSaudavel = dados.result?.is_healthy?.binary;
-
-      if (estaSaudavel === true) {
-        statusIdentificado = "Saudável";
-      } else if (estaSaudavel === false) {
-        statusIdentificado = "Atenção";
-      }
-
-      setStatusSaude(statusIdentificado);
-
-      const sugestoesDoencas = dados.result?.disease?.suggestions || [];
-
-      if (sugestoesDoencas.length > 0) {
-        listaProblemas = sugestoesDoencas
-          .slice(0, 3)
-          .map((doenca: { name: string }) => doenca.name);
-      }
+      const listaProblemas =
+        dados.result?.disease?.suggestions?.slice(0, 3).map((d: any) => d.name) ||
+        ["Nenhum problema específico identificado."];
 
       setProblemas(listaProblemas);
 
-      const tratamento = await gerarTratamentoComIA(
-        plantaIdentificada,
-        listaProblemas
-      );
-
+      const tratamento = await gerarTratamentoComIA(sugestao.name, listaProblemas);
       setTratamentoIA(tratamento);
-    } catch (erroAnalise) {
-      console.error(erroAnalise);
-      setErro(
-        "Não foi possível concluir a análise. Confira a chave VITE_PLANT_ID_API_KEY e tente novamente."
-      );
+
+    } catch {
+      setErro("Erro ao analisar imagem.");
     } finally {
       setCarregando(false);
     }
   }
 
   async function salvarDiagnostico() {
-    if (!nomeCientifico || !tratamentoIA) return;
+    if (!nomeCientifico || !tratamentoIA) {
+      setMensagem("Dados incompletos para salvar.");
+      return;
+    }
 
     const problema = problemas.join(", ");
 
@@ -231,34 +194,28 @@ export default function Diagnostico({ salvar }: DiagnosticoProps) {
     setMensagem("");
 
     try {
-      if (salvar) {
-        await salvar(nomeCientifico, problema, tratamentoIA);
-      } else {
-        const novo = {
-          data: new Date().toLocaleString("pt-BR", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          tipo: "Diagnóstico",
-          planta: nomeCientifico,
-          problema,
-          solucao: tratamentoIA,
-        };
+      const novo = {
+        id: Date.now(),
+        data: new Date().toLocaleString("pt-BR"),
+        tipo: "Diagnóstico",
+        planta: nomeCientifico,
+        problema,
+        solucao: tratamentoIA,
+      };
 
-        await fetch("http://localhost:3000/diario", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(novo),
-        });
-      }
+      const resposta = await fetch("http://localhost:3000/diario", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(novo),
+      });
 
-      setMensagem("Diagnóstico salvo no diário com sucesso!");
-    } catch (erroSalvar) {
-      console.error("Erro ao salvar:", erroSalvar);
-      setMensagem("Não foi possível salvar no diário.");
+      if (!resposta.ok) throw new Error();
+
+      setMensagem("Diagnóstico salvo com sucesso!");
+    } catch {
+      setMensagem("Erro ao salvar diagnóstico.");
     } finally {
       setSalvando(false);
     }
@@ -268,10 +225,6 @@ export default function Diagnostico({ salvar }: DiagnosticoProps) {
     <main style={styles.container}>
       <section style={styles.card}>
         <h2>🌱 Diagnóstico por imagem</h2>
-        <p style={styles.textoAuxiliar}>
-          Envie uma foto da planta para identificar a espécie, verificar o estado
-          de saúde e receber possíveis tratamentos com a IA do projeto.
-        </p>
 
         <label style={styles.uploadBox}>
           <input
@@ -281,13 +234,13 @@ export default function Diagnostico({ salvar }: DiagnosticoProps) {
             style={styles.fileInput}
           />
           <strong>Selecionar imagem</strong>
-          <span>Use uma foto nítida das folhas, caule ou frutos afetados.</span>
+          <span>Use uma foto nítida da planta.</span>
         </label>
 
-        {imagem && <img src={imagem} alt="Imagem enviada" style={styles.preview} />}
+        {imagem && <img src={imagem} style={styles.preview} />}
 
-        <button onClick={analisarImagem} disabled={carregando} style={styles.botaoPrincipal}>
-          {carregando ? "Analisando..." : "Analisar planta"}
+        <button onClick={analisarImagem} style={styles.botaoPrincipal}>
+          {carregando ? "Analisando..." : "Analisar"}
         </button>
 
         {erro && <p style={styles.erro}>{erro}</p>}
@@ -295,69 +248,59 @@ export default function Diagnostico({ salvar }: DiagnosticoProps) {
 
       {nomeCientifico && (
         <section style={styles.resultados}>
-          <article style={styles.resultCard}>
-            <h2>Relatório da planta</h2>
-
-            <p>
-              <strong>Precisão:</strong> {precisao}
+          <div style={styles.resultCard}>
+            <h3>🌿 Planta</h3>
+            <p><strong>Nome:</strong> {nomeCientifico}</p>
+            <p><strong>Precisão:</strong> {precisao}</p>
+            {descricao && (
+            <p style={{ marginTop: "10px", lineHeight: "1.6" }}>
+              {descricao}
             </p>
-
-            <p>
-              <strong>Nome científico:</strong> {nomeCientifico}
-            </p>
-
-            {taxonomia && (
-              <>
-                <h3>Taxonomia</h3>
-                <ul>
-                  {taxonomia.kingdom && <li>Reino: {taxonomia.kingdom}</li>}
-                  {taxonomia.phylum && <li>Filo: {taxonomia.phylum}</li>}
-                  {taxonomia.class && <li>Classe: {taxonomia.class}</li>}
-                  {taxonomia.order && <li>Ordem: {taxonomia.order}</li>}
-                  {taxonomia.family && <li>Família: {taxonomia.family}</li>}
-                  {taxonomia.genus && <li>Gênero: {taxonomia.genus}</li>}
-                </ul>
-              </>
             )}
-
-            <p>
-              <strong>Descrição:</strong> {descricao}
-            </p>
-          </article>
-
-          <article style={styles.resultCard}>
-            <h2>Relatório de saúde</h2>
-
-            <p>
-              <strong>Status de saúde:</strong> {statusSaude}
-            </p>
-
-            <p>
-              <strong>Possíveis problemas encontrados:</strong>
-            </p>
-
+            </div>
+          <div style={styles.resultCard}>
+            <h3>🩺 Diagnóstico</h3>
             <ul>
-              {problemas.map((problema, index) => (
-                <li key={index}>{problema}</li>
+              {problemas.map((p, i) => (
+                <li key={i}>{p}</li>
               ))}
             </ul>
-          </article>
+          </div>
 
           {tratamentoIA && (
-            <article style={styles.resultCardGrande}>
-              <h2>Possíveis tratamentos sugeridos pela IA</h2>
-              <pre style={styles.respostaIA}>{tratamentoIA}</pre>
+            <div style={styles.resultCardGrande}>
+              <h3>💡 Tratamento</h3>
+              <div style={styles.respostaIA}>
+              {tratamentoIA
+                .replace(/\*\*/g, "") // remove **
+                .replace(/\*/g, "")   // remove *
+                .split("\n")
+                .map((linha, i) => {
+                  if (linha.trim() === "") return null;
 
-              <button
-                onClick={salvarDiagnostico}
-                disabled={salvando}
-                style={styles.botaoSecundario}
-              >
-                {salvando ? "Salvando..." : "💾 Salvar no Diário"}
+                  // títulos (tipo "Cuidados Imediatos:")
+                  if (linha.includes(":")) {
+                    return (
+                      <p key={i} style={{ fontWeight: "bold", marginTop: "10px" }}>
+                        {linha}
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <p key={i} style={{ marginBottom: "6px" }}>
+                      {linha}
+                    </p>
+                  );
+                })}
+            </div>
+
+              <button onClick={salvarDiagnostico} style={styles.botaoSecundario}>
+                {salvando ? "Salvando..." : "💾 Salvar"}
               </button>
 
               {mensagem && <p style={styles.mensagem}>{mensagem}</p>}
-            </article>
+            </div>
           )}
         </section>
       )}
@@ -365,109 +308,92 @@ export default function Diagnostico({ salvar }: DiagnosticoProps) {
   );
 }
 
+// 🔥 CORRETO
 const styles: Record<string, CSSProperties> = {
   container: {
     minHeight: "100vh",
     padding: "30px 16px",
+    background: "#f4f7f4",
+    fontFamily: "Arial, sans-serif",
   },
   card: {
-    maxWidth: "850px",
+    maxWidth: "700px",
     margin: "0 auto",
-    padding: "26px",
-    borderRadius: "18px",
+    padding: "24px",
+    borderRadius: "16px",
     background: "#ffffff",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
-  },
-  textoAuxiliar: {
-    color: "#526252",
-    lineHeight: 1.5,
+    boxShadow: "0 8px 25px rgba(0,0,0,0.08)",
+    textAlign: "center",
   },
   uploadBox: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     gap: "8px",
-    padding: "24px",
-    borderRadius: "14px",
-    border: "2px dashed #7fb77e",
-    background: "#f7fff7",
+    padding: "20px",
+    borderRadius: "12px",
+    border: "2px dashed #4caf50",
+    background: "#f1faf1",
     cursor: "pointer",
-    textAlign: "center",
+    marginTop: "12px",
   },
-  fileInput: {
-    display: "none",
-  },
+  fileInput: { display: "none" },
   preview: {
-    display: "block",
+    marginTop: "15px",
     width: "100%",
-    maxWidth: "420px",
-    maxHeight: "320px",
-    objectFit: "cover",
-    borderRadius: "14px",
-    margin: "22px auto 0",
+    maxWidth: "300px",
+    borderRadius: "12px",
   },
   botaoPrincipal: {
-    display: "block",
+    marginTop: "15px",
+    padding: "12px",
     width: "100%",
-    marginTop: "20px",
-    padding: "13px 18px",
-    border: 0,
-    borderRadius: "12px",
-    background: "#2f7d32",
-    color: "#ffffff",
-    fontSize: "16px",
-    fontWeight: 700,
+    border: "none",
+    borderRadius: "10px",
+    background: "#2e7d32",
+    color: "#fff",
+    fontWeight: "bold",
     cursor: "pointer",
   },
   botaoSecundario: {
-    marginTop: "14px",
-    padding: "11px 16px",
-    border: 0,
-    borderRadius: "10px",
-    background: "#22577a",
-    color: "#ffffff",
-    fontWeight: 700,
+    marginTop: "10px",
+    padding: "10px",
+    border: "none",
+    borderRadius: "8px",
+    background: "#1565c0",
+    color: "#fff",
     cursor: "pointer",
   },
   resultados: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "18px",
-    maxWidth: "1100px",
-    margin: "22px auto 0",
+    gap: "15px",
+    marginTop: "20px",
+    maxWidth: "900px",
+    marginInline: "auto",
   },
   resultCard: {
-    padding: "22px",
-    borderRadius: "16px",
-    background: "#ffffff",
-    boxShadow: "0 10px 24px rgba(0, 0, 0, 0.08)",
-    lineHeight: 1.6,
+    background: "#fff",
+    padding: "18px",
+    borderRadius: "12px",
+    boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
   },
   resultCardGrande: {
-    gridColumn: "1 / -1",
-    padding: "22px",
-    borderRadius: "16px",
-    background: "#ffffff",
-    boxShadow: "0 10px 24px rgba(0, 0, 0, 0.08)",
-    lineHeight: 1.6,
+    background: "#fff",
+    padding: "18px",
+    borderRadius: "12px",
+    boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
   },
   respostaIA: {
-    whiteSpace: "pre-wrap",
-    fontFamily: "inherit",
-    background: "#f6f8f6",
-    borderRadius: "12px",
-    padding: "14px",
+  padding: "16px",
+  borderRadius: "10px",
+  lineHeight: "1.6",
+  fontSize: "14px",
+  textAlign: "left",
   },
-  erro: {
-    marginTop: "14px",
-    padding: "12px",
-    borderRadius: "10px",
-    background: "#ffe8e8",
-    color: "#a12b2b",
-  },
+  erro: { color: "red", marginTop: "10px" },
   mensagem: {
-    marginTop: "12px",
-    color: "#2f7d32",
-    fontWeight: 700,
+    color: "green",
+    marginTop: "10px",
+    fontWeight: "bold",
   },
 };

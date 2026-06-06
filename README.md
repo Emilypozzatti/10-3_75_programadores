@@ -22,3 +22,31 @@ Atualmente, o sistema já realiza upload de imagens, identificação de plantas,
 
 ## Link Pitch
 https://www.youtube.com/watch?v=SPPkOhT8FqI
+
+## Instruções de como rodar a aplicação
+Baixar: https://nodejs.org?utm_source=chatgpt.com com npm
+
+# No terminal 
+npm init -y
+npm create vite@latest
+Escolher React e Typescript
+
+# Para rodar o front
+cd projeto_front/
+npm install
+npm install react-router-dom
+- npm run vite
+
+# Para rodar o Banco
+npm install react-router-dom
+- npx json-server --watch db.json --port 3000
+
+# Para rodar o back
+cd projeto_back/
+npm init -y
+npm install express
+npm install cors
+npm install axios
+npm install dotenv
+
+- node server.js

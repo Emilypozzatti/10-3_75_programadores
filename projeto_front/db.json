@@ -13,6 +13,20 @@
       "problema": "com bichos",
       "solucao": "Para controlar bichos em batatas, você pode adotar as seguintes medidas:\n\n- Utilize cercas para evitar infestação;\n- Plante batatas resistentes a bichos;\n- Trate o solo com inseticida;\n- Coloque rede de proteção;\n- Utilize cultivares resistentes a doenças.",
       "id": "N0H7ece8TfY"
+    },
+    {
+      "id": "N2c0uF_Pax0",
+      "data": "06/06/2026, 04:59:08",
+      "tipo": "Diagnóstico",
+      "planta": "Zea mays",
+      "problema": "Pucciniales",
+      "solucao": "Para a doença Pucciniales (tênido do milho) em Zea mays (milho), aqui estão os cuidados e tratamentos recomendados:\n\n**Cuidados imediatos:**\n\n- Remova as folhas afetadas para evitar a propagação da doença.\n- Realize a análise de amostras da planta para confirmar o diagnóstico.\n\n**Prevenção:**\n\n- Mantenha a área livre de detritos e resíduos que podem servir de habitat para fungos.\n- Faça o controle de pragas que podem contribuir para a disseminação da doença.\n- Use práticas de irrigação adequadas para evitar a umidade excessiva.\n\n**Tratamentos:**\n\n- Use fungicidas sistêmicos ou de contato para controlar a doença.\n- Realize a aplicação de produtos químicos a cada 10 a 14 dias, dependendo da gravidade da infecção.\n- Considere o uso de produtos naturais como óleo de neem ou calda de óleo de soja.\n\n**Avise para consultar um agrônomo em casos graves:**\n\n- Se a doença for avançada e afetar mais de 50% da planta.\n- Se a planta apresentar sinais de debilidade ou declínio acentuado.\n- Se você não tiver experiência em tratar doenças de milho."
+    },
+    {
+      "data": "06/06/2026, 05:49:51",
+      "tipo": "Manual",
+      "atividade": "fertilizei as batatas",
+      "id": "JZ0mFEdeWdg"
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"

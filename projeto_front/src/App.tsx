@@ -1,7 +1,8 @@
-import { Routes, Route, Link } from "react-router-dom";
+import { Routes, Route, Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Diagnostico from "./pages/diagnostico";
 import Diario from "./pages/diario";
+import Home from "./pages/Home";
 
 type Registro = {
   data: string;
@@ -12,22 +13,18 @@ type Registro = {
 
 function App() {
   const [diario, setDiario] = useState<Registro[]>([]);
+  const location = useLocation();
 
-  // 🔥 CARREGAR DO BANCO (db.json)
   useEffect(() => {
     fetch("http://localhost:3002/diario")
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) {
-          setDiario(data);
-        } else {
-          setDiario([]);
-        }
+        if (Array.isArray(data)) setDiario(data);
+        else setDiario([]);
       })
       .catch(() => setDiario([]));
   }, []);
 
-  // 🔥 SALVAR NO BANCO
   async function salvar(planta: string, problema: string, solucao: string) {
     const novo: Registro = {
       data: new Date().toLocaleString(),
@@ -45,7 +42,6 @@ function App() {
         body: JSON.stringify(novo),
       });
 
-      // atualiza tela sem recarregar
       setDiario((prev) => [...prev, novo]);
     } catch (err) {
       console.error("Erro ao salvar:", err);
@@ -54,15 +50,21 @@ function App() {
 
   return (
     <div>
-      <h1>🌱 AgroAssist</h1>
-
-      <nav>
-        <Link to="/">Diagnóstico</Link> |{" "}
-        <Link to="/diario">Diário</Link>
-      </nav>
+      {/* 🔥 NÃO MOSTRA HEADER NA HOME */}
+      {location.pathname !== "/" && (
+        <>
+          <h1>🌱 AgroAssist</h1>
+          <nav>
+            <Link to="/">Home</Link> |{" "}
+            <Link to="/diagnostico">Diagnóstico</Link> |{" "}
+            <Link to="/diario">Diário</Link>
+          </nav>
+        </>
+      )}
 
       <Routes>
-        <Route path="/" element={<Diagnostico salvar={salvar} />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/diagnostico" element={<Diagnostico salvar={salvar} />} />
         <Route
           path="/diario"
           element={<Diario diario={diario} setDiario={setDiario} />}
